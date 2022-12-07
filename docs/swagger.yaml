@@ -1,0 +1,101 @@
+definitions:
+  model.StatsRequest:
+    properties:
+      end_time:
+        type: string
+      "n":
+        type: integer
+      start_time:
+        type: string
+    type: object
+  model.StatsResponse:
+    properties:
+      cnt:
+        type: integer
+      intentId:
+        type: string
+      intentName:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /bot:
+    post:
+      consumes:
+      - application/json
+      description: 见原始文档https://newtestchatbot.wul.ai/core/engine/dm/openapi.json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: body
+      summary: 代理机器人Api
+      tags:
+      - botAgent
+  /flush:
+    post:
+      consumes:
+      - application/json
+      description: 点击200 Successful Response查看具体接口返回格式
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: body
+      summary: 刷新统计数据缓存
+      tags:
+      - botAgent
+  /stats:
+    post:
+      consumes:
+      - application/json
+      description: 点击200 Successful Response查看具体接口返回格式
+      parameters:
+      - description: ' '
+        in: body
+        name: "n"
+        required: true
+        schema:
+          $ref: '#/definitions/model.StatsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.StatsResponse'
+            type: array
+      summary: 获取知识点TopN
+      tags:
+      - botAgent
+  /top:
+    post:
+      consumes:
+      - application/json
+      description: 点击200 Successful Response查看具体接口返回格式
+      parameters:
+      - description: ' '
+        in: body
+        name: "n"
+        required: true
+        schema:
+          $ref: '#/definitions/model.StatsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.StatsResponse'
+            type: array
+      summary: 获取知识点TopN（无缓存）
+      tags:
+      - botAgent
+swagger: "2.0"
