@@ -4,6 +4,7 @@ WORKDIR /app
 ADD go.mod .
 ADD go.sum .
 ENV GO111MODULE=on
+ENV GOPROXY=https://goproxy.cn
 
 RUN go mod tidy
 COPY . .
