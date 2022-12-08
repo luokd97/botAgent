@@ -8,10 +8,10 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-const dbuser = ""
-const dbpass = ""
-const url = ""
-const dbname = "go_demo"
+const dbuser = "root"
+const dbpass = "12345678"
+const url = "@tcp(mysql:3306)/"
+const dbname = "bot_agent"
 
 var Db *gorm.DB
 
