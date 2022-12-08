@@ -3,8 +3,12 @@ FROM golang:latest
 WORKDIR /app
 ADD go.mod .
 ADD go.sum .
-ENV GO111MODULE=on
-ENV GOPROXY=https://goproxy.cn
+
+RUN go env -w GO111MODULE=on \
+    go env -w  GOPROXY=https://goproxy.cn,direct
+
+#ENV GO111MODULE=on
+#ENV GOPROXY=https://goproxy.cn
 
 RUN go mod tidy
 COPY . .
