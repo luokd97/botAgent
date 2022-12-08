@@ -1,11 +1,13 @@
 FROM golang:latest
 
 WORKDIR /app
-COPY . .
-
+ADD go.mod .
+ADD go.sum .
 ENV GO111MODULE=on
 
 RUN go mod tidy
+COPY . .
+
 RUN go build -o app .
 
 EXPOSE 8000
