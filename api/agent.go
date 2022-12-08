@@ -34,13 +34,13 @@ func GetPublicIp(c *gin.Context) {
 	}
 }
 
-// @Summary 代理机器人Api
-// @Description 见原始文档https://newtestchatbot.wul.ai/core/engine/dm/openapi.json
-// @Tags botAgent
-// @Accept json
-// @Produce json
-// @Success 200 body string
-// @Router /bot [post]
+// @Summary		代理机器人Api
+// @Description	与原始文档一致https://newtestchatbot.wul.ai/core/engine/dm/openapi.json
+// @Tags			botAgent
+// @Accept			json
+// @Produce		json
+// @Success		200	body	string
+// @Router			/bot [post]
 func GetBotResponse(c *gin.Context) {
 	resp, err := http.Post(robotApiUrl, "application/json", c.Request.Body)
 

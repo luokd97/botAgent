@@ -10,7 +10,10 @@ import (
 
 const dbuser = "root"
 const dbpass = "12345678"
+
 const url = "@tcp(mysql:3306)/"
+
+// const url = "@tcp(localhost:3306)/"
 const dbname = "bot_agent"
 
 var Db *gorm.DB
@@ -22,5 +25,5 @@ func init() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	Db.AutoMigrate(&model.BotResponse{})
+	Db.AutoMigrate(&model.BotResponse{}, &model.DailyIntent{})
 }

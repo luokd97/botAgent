@@ -1,20 +1,36 @@
 definitions:
+  model.CommonIntentRequest:
+    properties:
+      duration:
+        description: duration-查询的时间范围 枚举类型：0.昨天 1.过去7天 2.过去30天 3.过去90天 4.上周汇总 5.上月汇总"
+          enum:"0,1,2,3,4,5
+        type: integer
+      "n":
+        description: 检索数量前n的intent信息，默认为3
+        type: integer
+    type: object
   model.StatsRequest:
     properties:
       end_time:
-        type: string
+        description: 检索范围的结束时间 unix时间戳
+        type: integer
       "n":
+        description: 检索数量前n的intent信息，默认为3
         type: integer
       start_time:
-        type: string
+        description: 检索范围的起始时间 unix时间戳
+        type: integer
     type: object
   model.StatsResponse:
     properties:
       cnt:
+        description: 召回次数
         type: integer
       intent_id:
+        description: 知识点唯一id
         type: string
       intent_name:
+        description: 知识点最新名称
         type: string
     type: object
 info:
@@ -24,7 +40,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 见原始文档https://newtestchatbot.wul.ai/core/engine/dm/openapi.json
+      description: 与原始文档一致https://newtestchatbot.wul.ai/core/engine/dm/openapi.json
       produces:
       - application/json
       responses:
@@ -39,7 +55,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 点击200 Successful Response查看具体接口返回格式
+      description: 刷新昨日、近7天、近30天、近90天的TopN缓存结果
       produces:
       - application/json
       responses:
@@ -47,21 +63,21 @@ paths:
           description: OK
           schema:
             type: body
-      summary: 刷新统计数据缓存
+      summary: 手动刷新统计数据缓存
       tags:
-      - botAgent
+      - 开发测试
   /stats:
     post:
       consumes:
       - application/json
       description: 点击200 Successful Response查看具体接口返回格式
       parameters:
-      - description: ' '
+      - description: 控制参数
         in: body
         name: "n"
         required: true
         schema:
-          $ref: '#/definitions/model.StatsRequest'
+          $ref: '#/definitions/model.CommonIntentRequest'
       produces:
       - application/json
       responses:
@@ -95,7 +111,7 @@ paths:
             items:
               $ref: '#/definitions/model.StatsResponse'
             type: array
-      summary: 获取知识点TopN（无缓存）
+      summary: 按精确时间获取知识点TopN
       tags:
-      - botAgent
+      - 开发测试
 swagger: "2.0"

@@ -29,9 +29,7 @@ func newBotResponse(db *gorm.DB, opts ...gen.DOOption) botResponse {
 	tableName := _botResponse.botResponseDo.TableName()
 	_botResponse.ALL = field.NewAsterisk(tableName)
 	_botResponse.ID = field.NewUint(tableName, "id")
-	_botResponse.CreatedAt = field.NewTime(tableName, "created_at")
-	_botResponse.UpdatedAt = field.NewTime(tableName, "updated_at")
-	_botResponse.DeletedAt = field.NewField(tableName, "deleted_at")
+	_botResponse.UnixTime = field.NewInt64(tableName, "unix_time")
 	_botResponse.IntentId = field.NewString(tableName, "intent_id")
 	_botResponse.IntentName = field.NewString(tableName, "intent_name")
 
@@ -45,9 +43,7 @@ type botResponse struct {
 
 	ALL        field.Asterisk
 	ID         field.Uint
-	CreatedAt  field.Time
-	UpdatedAt  field.Time
-	DeletedAt  field.Field
+	UnixTime   field.Int64
 	IntentId   field.String
 	IntentName field.String
 
@@ -67,9 +63,7 @@ func (b botResponse) As(alias string) *botResponse {
 func (b *botResponse) updateTableName(table string) *botResponse {
 	b.ALL = field.NewAsterisk(table)
 	b.ID = field.NewUint(table, "id")
-	b.CreatedAt = field.NewTime(table, "created_at")
-	b.UpdatedAt = field.NewTime(table, "updated_at")
-	b.DeletedAt = field.NewField(table, "deleted_at")
+	b.UnixTime = field.NewInt64(table, "unix_time")
 	b.IntentId = field.NewString(table, "intent_id")
 	b.IntentName = field.NewString(table, "intent_name")
 
@@ -88,11 +82,9 @@ func (b *botResponse) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (b *botResponse) fillFieldMap() {
-	b.fieldMap = make(map[string]field.Expr, 6)
+	b.fieldMap = make(map[string]field.Expr, 4)
 	b.fieldMap["id"] = b.ID
-	b.fieldMap["created_at"] = b.CreatedAt
-	b.fieldMap["updated_at"] = b.UpdatedAt
-	b.fieldMap["deleted_at"] = b.DeletedAt
+	b.fieldMap["unix_time"] = b.UnixTime
 	b.fieldMap["intent_id"] = b.IntentId
 	b.fieldMap["intent_name"] = b.IntentName
 }
@@ -171,8 +163,9 @@ type IBotResponseDo interface {
 
 	FilterWithNameAndRole(name string, role string) (result []model.BotResponse, err error)
 	SelectTopIntentId(n int) (result []map[string]interface{}, err error)
-	SelectTopIntentIdByTime(startTime string, endTime string, n int) (result []map[string]interface{}, err error)
+	SelectTopIntentIdByTime(startTime int64, endTime int64, n int) (result []map[string]interface{}, err error)
 	GetIntentNameByIntentId(intentId string) (result string, err error)
+	SelectTopIntentByDailyRank(startTime int64, endTime int64, n int) (result []map[string]interface{}, err error)
 }
 
 // SELECT * FROM @@table WHERE name = @name{{if role !=""}} AND role = @role{{end}}
@@ -209,15 +202,17 @@ func (b botResponseDo) SelectTopIntentId(n int) (result []map[string]interface{}
 	return
 }
 
-// select intent_id, count(*) cnt from `bot_response` where created_at between @startTime and @endTime group by intent_id order by cnt desc limit @n
-func (b botResponseDo) SelectTopIntentIdByTime(startTime string, endTime string, n int) (result []map[string]interface{}, err error) {
+// select intent_id, count(*) cnt,
+// (select intent_name from bot_response where intent_id=br.intent_id  order by unix_time desc limit 1) as intent_name
+// from `bot_response` br where unix_time between @startTime and @endTime group by intent_id order by cnt desc limit @n
+func (b botResponseDo) SelectTopIntentIdByTime(startTime int64, endTime int64, n int) (result []map[string]interface{}, err error) {
 	var params []interface{}
 
 	var generateSQL strings.Builder
 	params = append(params, startTime)
 	params = append(params, endTime)
 	params = append(params, n)
-	generateSQL.WriteString("select intent_id, count(*) cnt from `bot_response` where created_at between ? and ? group by intent_id order by cnt desc limit ? ")
+	generateSQL.WriteString("select intent_id, count(*) cnt, (select intent_name from bot_response where intent_id=br.intent_id order by unix_time desc limit 1) as intent_name from `bot_response` br where unix_time between ? and ? group by intent_id order by cnt desc limit ? ")
 
 	var executeSQL *gorm.DB
 
@@ -237,6 +232,25 @@ func (b botResponseDo) GetIntentNameByIntentId(intentId string) (result string, 
 	var executeSQL *gorm.DB
 
 	executeSQL = b.UnderlyingDB().Raw(generateSQL.String(), params...).Take(&result)
+	err = executeSQL.Error
+	return
+}
+
+// select intent_id, sum(count) total_cnt,
+// (select intent_name from bot_response where intent_id=di.intent_id order by unix_time desc limit 1) as intent_name
+// from `daily_intent` di where unix_time between @startTime and @endTime group by intent_id order by total_cnt desc limit @n
+func (b botResponseDo) SelectTopIntentByDailyRank(startTime int64, endTime int64, n int) (result []map[string]interface{}, err error) {
+	var params []interface{}
+
+	var generateSQL strings.Builder
+	params = append(params, startTime)
+	params = append(params, endTime)
+	params = append(params, n)
+	generateSQL.WriteString("select intent_id, sum(count) total_cnt, (select intent_name from bot_response where intent_id=di.intent_id order by unix_time desc limit 1) as intent_name from `daily_intent` di where unix_time between ? and ? group by intent_id order by total_cnt desc limit ? ")
+
+	var executeSQL *gorm.DB
+
+	executeSQL = b.UnderlyingDB().Raw(generateSQL.String(), params...).Find(&result)
 	err = executeSQL.Error
 	return
 }

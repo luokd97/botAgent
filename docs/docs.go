@@ -18,7 +18,7 @@ const docTemplate = `{
     "paths": {
         "/bot": {
             "post": {
-                "description": "见原始文档https://newtestchatbot.wul.ai/core/engine/dm/openapi.json",
+                "description": "与原始文档一致https://newtestchatbot.wul.ai/core/engine/dm/openapi.json",
                 "consumes": [
                     "application/json"
                 ],
@@ -41,7 +41,7 @@ const docTemplate = `{
         },
         "/flush": {
             "post": {
-                "description": "点击200 Successful Response查看具体接口返回格式",
+                "description": "刷新昨日、近7天、近30天、近90天的TopN缓存结果",
                 "consumes": [
                     "application/json"
                 ],
@@ -49,9 +49,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "botAgent"
+                    "开发测试"
                 ],
-                "summary": "刷新统计数据缓存",
+                "summary": "手动刷新统计数据缓存",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -77,12 +77,12 @@ const docTemplate = `{
                 "summary": "获取知识点TopN",
                 "parameters": [
                     {
-                        "description": " ",
+                        "description": "控制参数",
                         "name": "n",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.StatsRequest"
+                            "$ref": "#/definitions/model.CommonIntentRequest"
                         }
                     }
                 ],
@@ -109,9 +109,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "botAgent"
+                    "开发测试"
                 ],
-                "summary": "获取知识点TopN（无缓存）",
+                "summary": "按精确时间获取知识点TopN",
                 "parameters": [
                     {
                         "description": " ",
@@ -138,17 +138,33 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "model.CommonIntentRequest": {
+            "type": "object",
+            "properties": {
+                "duration": {
+                    "description": "duration-查询的时间范围 枚举类型：0.昨天 1.过去7天 2.过去30天 3.过去90天 4.上周汇总 5.上月汇总\" enum:\"0,1,2,3,4,5",
+                    "type": "integer"
+                },
+                "n": {
+                    "description": "检索数量前n的intent信息，默认为3",
+                    "type": "integer"
+                }
+            }
+        },
         "model.StatsRequest": {
             "type": "object",
             "properties": {
                 "end_time": {
-                    "type": "string"
+                    "description": "检索范围的结束时间 unix时间戳",
+                    "type": "integer"
                 },
                 "n": {
+                    "description": "检索数量前n的intent信息，默认为3",
                     "type": "integer"
                 },
                 "start_time": {
-                    "type": "string"
+                    "description": "检索范围的起始时间 unix时间戳",
+                    "type": "integer"
                 }
             }
         },
@@ -156,12 +172,15 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "cnt": {
+                    "description": "召回次数",
                     "type": "integer"
                 },
                 "intent_id": {
+                    "description": "知识点唯一id",
                     "type": "string"
                 },
                 "intent_name": {
+                    "description": "知识点最新名称",
                     "type": "string"
                 }
             }

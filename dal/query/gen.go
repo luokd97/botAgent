@@ -18,17 +18,20 @@ import (
 var (
 	Q           = new(Query)
 	BotResponse *botResponse
+	DailyIntent *dailyIntent
 )
 
 func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	*Q = *Use(db, opts...)
 	BotResponse = &Q.BotResponse
+	DailyIntent = &Q.DailyIntent
 }
 
 func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 	return &Query{
 		db:          db,
 		BotResponse: newBotResponse(db, opts...),
+		DailyIntent: newDailyIntent(db, opts...),
 	}
 }
 
@@ -36,6 +39,7 @@ type Query struct {
 	db *gorm.DB
 
 	BotResponse botResponse
+	DailyIntent dailyIntent
 }
 
 func (q *Query) Available() bool { return q.db != nil }
@@ -44,6 +48,7 @@ func (q *Query) clone(db *gorm.DB) *Query {
 	return &Query{
 		db:          db,
 		BotResponse: q.BotResponse.clone(db),
+		DailyIntent: q.DailyIntent.clone(db),
 	}
 }
 
@@ -59,16 +64,19 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 	return &Query{
 		db:          db,
 		BotResponse: q.BotResponse.replaceDB(db),
+		DailyIntent: q.DailyIntent.replaceDB(db),
 	}
 }
 
 type queryCtx struct {
 	BotResponse IBotResponseDo
+	DailyIntent IDailyIntentDo
 }
 
 func (q *Query) WithContext(ctx context.Context) *queryCtx {
 	return &queryCtx{
 		BotResponse: q.BotResponse.WithContext(ctx),
+		DailyIntent: q.DailyIntent.WithContext(ctx),
 	}
 }
 
