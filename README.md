@@ -4,8 +4,8 @@
 
 | 序号 | 名称 | 描述 | 类型 | 键 | 为空 | 额外 | 默认值 |
 | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: |
-| 1 | `id` |  | bigint unsigned | PRI | NO | auto_increment |  |
-| 2 | `unix_time` |  | bigint |  | YES |  |  |
+| 1 | `id` |  | bigint unsigned | PRI | NO | 自增 |  |
+| 2 | `unix_time` |unix时间戳| bigint |  | YES |  |  |
 | 3 | `intent_id` |  | longtext |  | YES |  |  |
 | 4 | `intent_name` |  | longtext |  | YES |  |  |
 
@@ -14,11 +14,11 @@
 
 | 序号 | 名称 | 描述 | 类型 | 键 | 为空 | 额外 | 默认值 |
 | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: |
-| 1 | `id` |  | bigint unsigned | PRI | NO | auto_increment |  |
-| 2 | `unix_time` |  | bigint |  | YES |  |  |
+| 1 | `id` |  | bigint unsigned | PRI | NO | 自增 |  |
+| 2 | `unix_time` | 记录一个日期 | bigint |  | YES |  |  |
 | 3 | `intent_id` |  | longtext |  | YES |  |  |
 | 4 | `intent_name` |  | longtext |  | YES |  |  |
-| 5 | `count` |  | bigint |  | YES |  |  |
+| 5 | `count` | 记录当日该intent的召回次数 | bigint |  | YES |  |  |
 
 
 
