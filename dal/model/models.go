@@ -17,9 +17,9 @@ type StatsRequest struct {
 }
 
 type StatsResponse struct {
-	Cnt        int
-	IntentId   string
-	IntentName string
+	Cnt        int    `json:"cnt"`
+	IntentId   string `json:"intent_id"`
+	IntentName string `json:"intent_name"`
 }
 
 func (BotResponse) TableName() string {
