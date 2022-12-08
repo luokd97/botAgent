@@ -158,10 +158,10 @@ const docTemplate = `{
                 "cnt": {
                     "type": "integer"
                 },
-                "intentId": {
+                "intent_id": {
                     "type": "string"
                 },
-                "intentName": {
+                "intent_name": {
                     "type": "string"
                 }
             }
