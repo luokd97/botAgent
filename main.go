@@ -11,6 +11,8 @@ import (
 )
 
 func main() {
+	fmt.Println("main.go init()")
+
 	//fmt.Println("11:", time.Now())									//result	11: 2022-12-08 23:23:40.306278 +0800 CST m=+0.108688793
 	//fmt.Println("22:", time.Now().Format("2006-01-01 15:01:05.000"))	//result	22: 2022-12-12 23:12:40.306
 	//fmt.Println("33:", time.Now().Format("2022-09-01 15:01:05.000"))	//result	22: 8088-09-12 23:12:40.306

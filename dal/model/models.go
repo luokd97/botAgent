@@ -8,11 +8,10 @@ type BotResponse struct {
 }
 
 type DailyIntent struct {
-	ID         uint   `gorm:"primarykey"`
-	UnixTime   int64  `json:"unix_time"`
-	IntentId   string `json:"intent_id"`
-	IntentName string `json:"intent_name"`
-	Count      int    `json:"count"`
+	ID       uint   `gorm:"primarykey"`
+	UnixTime int64  `json:"unix_time"`
+	IntentId string `json:"intent_id"`
+	Count    int    `json:"count"`
 }
 
 type StatsRequest struct {

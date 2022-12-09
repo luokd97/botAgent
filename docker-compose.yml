@@ -18,3 +18,4 @@ services:
       - MYSQL_DATABASE=bot_agent
     ports:
       - "3306:3306"
+    command: --sql_mode=""

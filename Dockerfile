@@ -4,13 +4,10 @@ WORKDIR /app
 ADD go.mod .
 ADD go.sum .
 
-RUN go env -w GO111MODULE=on \
-    go env -w  GOPROXY=https://goproxy.cn,direct
-
-#ENV GO111MODULE=on
-#ENV GOPROXY=https://goproxy.cn
+ENV GO111MODULE=on
 
 RUN go mod tidy
+
 COPY . .
 
 RUN go build -o app .
@@ -19,4 +16,5 @@ EXPOSE 8000
 
 RUN chmod +x wait-for-it.sh
 # Run the application after Mysql launch success
-ENTRYPOINT ["./wait-for-it.sh", "mysql:3306", "--", "./app"]
+#ENTRYPOINT ["./wait-for-it.sh", "mysql:3306", "--", "./app"]
+ENTRYPOINT ["./app", "docker"]

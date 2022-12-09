@@ -5,6 +5,7 @@ import (
 	"botApiStats/dal"
 	"botApiStats/dal/model"
 	"botApiStats/dal/query"
+	"fmt"
 	"testing"
 )
 
@@ -48,4 +49,12 @@ func TestEnvInit(t *testing.T) {
 	TestResponseDataFill(nil)
 	TestDailyDataFill(nil)
 	TestUpdateCache(nil)
+}
+
+func TestSelectNewestIntentNamesByIntentIds(t *testing.T) {
+	names, err := r.SelectNewestIntentNamesByIntentIds([]string{"1", "2"})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(names)
 }

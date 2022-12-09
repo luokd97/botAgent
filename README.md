@@ -24,8 +24,9 @@
 
 
 ## 部署方式
-
+本地构建，容器内运行
 ```sh
+$ go build -o app .
 $ docker-compose up --build
 ```
 

@@ -166,6 +166,8 @@ type IDailyIntentDo interface {
 	SelectTopIntentIdByTime(startTime int64, endTime int64, n int) (result []map[string]interface{}, err error)
 	GetIntentNameByIntentId(intentId string) (result string, err error)
 	SelectTopIntentByDailyRank(startTime int64, endTime int64, n int) (result []map[string]interface{}, err error)
+	SelectNewestIntentNamesByIntentIds(intentIds []string) (result []string, err error)
+	SelectIntentIdMapIntentName() (result map[string]string, err error)
 }
 
 // SELECT * FROM @@table WHERE name = @name{{if role !=""}} AND role = @role{{end}}
@@ -251,6 +253,40 @@ func (d dailyIntentDo) SelectTopIntentByDailyRank(startTime int64, endTime int64
 	var executeSQL *gorm.DB
 
 	executeSQL = d.UnderlyingDB().Raw(generateSQL.String(), params...).Find(&result)
+	err = executeSQL.Error
+	return
+}
+
+// select intent_name from (select * from `bot_response` order by unix_time desc limit 100000000) as b
+// where intent_id in (@intentIds)  group by intent_id order by field(intent_id {{for _,id:=range intentIds}},@id{{end}} )
+func (d dailyIntentDo) SelectNewestIntentNamesByIntentIds(intentIds []string) (result []string, err error) {
+	var params []interface{}
+
+	var generateSQL strings.Builder
+	params = append(params, intentIds)
+	generateSQL.WriteString("select intent_name from (select * from `bot_response` order by unix_time desc limit 100000000) as b where intent_id in (?) group by intent_id order by field(intent_id ")
+	for _, id := range intentIds {
+		params = append(params, id)
+		generateSQL.WriteString(",? ")
+	}
+	generateSQL.WriteString(") ")
+
+	var executeSQL *gorm.DB
+
+	executeSQL = d.UnderlyingDB().Raw(generateSQL.String(), params...).Find(&result)
+	err = executeSQL.Error
+	return
+}
+
+// select intent_id, intent_name from (select * from `bot_response` order by unix_time desc limit 100000000) as b  group by intent_id
+func (d dailyIntentDo) SelectIntentIdMapIntentName() (result map[string]string, err error) {
+	var generateSQL strings.Builder
+	generateSQL.WriteString("select intent_id, intent_name from (select * from `bot_response` order by unix_time desc limit 100000000) as b group by intent_id ")
+
+	result = make(map[string]string)
+	var executeSQL *gorm.DB
+
+	executeSQL = d.UnderlyingDB().Raw(generateSQL.String()).Take(result)
 	err = executeSQL.Error
 	return
 }

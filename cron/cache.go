@@ -52,7 +52,17 @@ func UpdateCacheJob() {
 func updateYesterdayTopN() {
 	dayIntents := CollectOneDayIntentCount(1)
 
-	data, err := json.Marshal(dayIntents)
+	idNameMap, _ := r.SelectIntentIdMapIntentName()
+
+	var yesterdayStats []model.StatsResponse
+	for i := range dayIntents {
+		yesterdayStats = append(yesterdayStats, model.StatsResponse{
+			Cnt:        dayIntents[i].Count,
+			IntentId:   dayIntents[i].IntentId,
+			IntentName: idNameMap[dayIntents[i].IntentId],
+		})
+	}
+	data, err := json.Marshal(yesterdayStats)
 	if err != nil {
 		panic(err)
 	}
@@ -101,7 +111,7 @@ func CollectOneDayIntentCount(daysAgo int) []*model.DailyIntent {
 
 	var dayIntentData []*model.DailyIntent
 	for _, record := range result {
-		dayIntentData = append(dayIntentData, &model.DailyIntent{UnixTime: startDay.Unix(), IntentId: record.IntentId, IntentName: record.IntentName, Count: record.Cnt})
+		dayIntentData = append(dayIntentData, &model.DailyIntent{UnixTime: startDay.Unix(), IntentId: record.IntentId, Count: record.Cnt})
 	}
 	err = d.CreateInBatches(dayIntentData, len(dayIntentData))
 	if err != nil {

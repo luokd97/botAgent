@@ -146,6 +146,7 @@ func TopIntentWithStats(c *gin.Context) {
 
 	//缓存未命中，从db查询
 	if result == nil {
+		fmt.Println("缓存未命中")
 		resultMap, _ := r.SelectTopIntentByDailyRank(startUnixTime, endUnixTime, n)
 		tool.Map2struct(resultMap, &result)
 	}
