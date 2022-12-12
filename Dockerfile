@@ -12,4 +12,4 @@ COPY . .
 
 RUN GO111MODULE=on go build -o app .
 
-ENTRYPOINT ["./app", "docker"]
+CMD ["./app", "-envTag", "docker"]

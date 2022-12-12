@@ -14,15 +14,17 @@ const (
 )
 
 func init() {
+	//接收环境变量envTag
 	args := os.Args
 	for i := range args {
 		fmt.Println("args[", i, "]", args[i])
+		if args[i] == "-envTag" && len(args) > i+1 {
+			EnvTag = args[2]
+		}
 	}
+	fmt.Println("envTag=", EnvTag)
 
-	if len(args) > 1 {
-		EnvTag = args[1]
-	}
-
+	//配置信息
 	globalConfig[local] = map[string]string{
 		"mysql_url":    "@tcp(localhost:3306)/",
 		"mysql_user":   "root",
