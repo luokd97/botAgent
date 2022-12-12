@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 )
 
@@ -14,6 +15,10 @@ const (
 
 func init() {
 	args := os.Args
+	for i := range args {
+		fmt.Println("args[", i, "]", args[i])
+	}
+
 	if len(args) > 1 {
 		EnvTag = args[1]
 	}

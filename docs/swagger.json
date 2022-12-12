@@ -4,9 +4,9 @@
         "contact": {}
     },
     "paths": {
-        "/bot": {
+        "/agents/{agentId}/channels/{channelId}/getReply": {
             "post": {
-                "description": "与原始文档一致https://newtestchatbot.wul.ai/core/engine/dm/openapi.json",
+                "description": "入参出参均与原始文档保持一致 https://demo.laiye.com:8083/chatbot-openapi/swagger-ui/#/ChannelReplyService/ChannelReplyService_GetReply",
                 "consumes": [
                     "application/json"
                 ],
