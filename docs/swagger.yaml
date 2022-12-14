@@ -1,30 +1,44 @@
 definitions:
-  model.CommonIntentRequest:
+  model.DurationStatsRequest:
     properties:
       duration:
         description: duration-查询的时间范围 枚举类型：0.昨天 1.过去7天 2.过去30天 3.过去90天 4.上周汇总 5.上月汇总"
           enum:"0,1,2,3,4,5
+        maximum: 5
+        minimum: 0
         type: integer
       "n":
-        description: 检索数量前n的intent信息，默认为3
+        description: 检索数量前n的intent信息，n允许范围[1,1000]
+        maximum: 1000
+        minimum: 1
         type: integer
+    required:
+    - "n"
     type: object
-  model.StatsRequest:
+  model.ExactStatsRequest:
     properties:
       end_time:
         description: 检索范围的结束时间 unix时间戳
+        minimum: 0
         type: integer
       "n":
-        description: 检索数量前n的intent信息，默认为3
+        description: 检索数量前n的intent信息，n允许范围[1,1000]
+        maximum: 1000
+        minimum: 1
         type: integer
       start_time:
         description: 检索范围的起始时间 unix时间戳
+        minimum: 0
         type: integer
+    required:
+    - end_time
+    - "n"
+    - start_time
     type: object
-  model.StatsResponse:
+  model.IntentResult:
     properties:
-      cnt:
-        description: 召回次数
+      count:
+        description: 按当前条件统计到的数量
         type: integer
       intent_id:
         description: 知识点唯一id
@@ -36,7 +50,7 @@ definitions:
 info:
   contact: {}
 paths:
-  /agents/{agentId}/channels/{channelId}/getReply:
+  /chatbot/v1alpha1/agents/{agentId}/channels/{channelId}/getReply:
     post:
       consumes:
       - application/json
@@ -51,8 +65,23 @@ paths:
       summary: 代理机器人Api
       tags:
       - botAgent
+  /count:
+    get:
+      consumes:
+      - application/json
+      description: 返回bot_response总行数
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: body
+      summary: 总记录数
+      tags:
+      - 开发测试
   /flush:
-    post:
+    get:
       consumes:
       - application/json
       description: 刷新昨日、近7天、近30天、近90天的TopN缓存结果
@@ -77,7 +106,7 @@ paths:
         name: "n"
         required: true
         schema:
-          $ref: '#/definitions/model.CommonIntentRequest'
+          $ref: '#/definitions/model.DurationStatsRequest'
       produces:
       - application/json
       responses:
@@ -85,12 +114,12 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/model.StatsResponse'
+              $ref: '#/definitions/model.IntentResult'
             type: array
-      summary: 获取知识点TopN
+      summary: 按枚举范围统计知识点TopN
       tags:
       - botAgent
-  /top:
+  /topn:
     post:
       consumes:
       - application/json
@@ -101,7 +130,7 @@ paths:
         name: "n"
         required: true
         schema:
-          $ref: '#/definitions/model.StatsRequest'
+          $ref: '#/definitions/model.ExactStatsRequest'
       produces:
       - application/json
       responses:
@@ -109,9 +138,9 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/model.StatsResponse'
+              $ref: '#/definitions/model.IntentResult'
             type: array
-      summary: 按精确时间获取知识点TopN
+      summary: 按精确范围统计知识点TopN
       tags:
       - 开发测试
 swagger: "2.0"

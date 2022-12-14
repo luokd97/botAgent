@@ -19,144 +19,122 @@ import (
 var r = query.Use(dal.Db).BotResponse
 
 func AddRecord(id string, name string) {
-	r.Create(&model.BotResponse{IntentId: id, IntentName: name})
+	r.Create(&model.BotResponse{IntentId: id, IntentName: name, CreatedAt: time.Now().Unix()})
 }
 
-// @Summary		按精确时间获取知识点TopN
+// @Summary		按精确范围统计知识点TopN
 // @Description	点击200 Successful Response查看具体接口返回格式
 // @Tags			开发测试
 // @Accept			json
 // @Produce		json
-// @Param			n	body		model.StatsRequest	true	" "
-// @Success		200	{object}	[]model.StatsResponse
-// @Router			/top [post]
-func TopIntent(c *gin.Context) {
-	n := 3
-	startTime := 0
-	endTime := 2147483647 //At 03:14:08 UTC on Tuesday, 19 January 2038
-	var req model.StatsRequest
+// @Param			n	body		model.ExactStatsRequest	true	" "
+// @Success		200	{object}	[]model.IntentResult
+// @Router			/topn [post]
+func GetTopNIntentByExactTime(c *gin.Context) {
+	var req model.ExactStatsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fmt.Println("request param illegal", err)
+		fmt.Println("请求参数有误:", err)
+		c.AbortWithStatusJSON(http.StatusBadRequest, "请求参数有误: "+fmt.Sprint(err))
+		return
+	}
+	var result []model.IntentResult
+	result, err := r.SelectTopNIntentByTime(req.StartTime, req.EndTime, req.N)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, "内部错误，请联系管理员")
+		panic(err)
 	} else {
-		if req.N != 0 {
-			n = req.N
-		}
-		if req.StartTime != 0 {
-			startTime = req.StartTime
-		}
-		if req.EndTime != 0 {
-			endTime = req.EndTime
-		}
+		c.IndentedJSON(http.StatusOK, result)
 	}
-
-	resultMap, err := r.SelectTopIntentIdByTime(int64(startTime), int64(endTime), n)
-	if err != nil {
-		panic(err)
-	}
-	var result []model.StatsResponse
-	tool.Map2struct(resultMap, &result)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Printf("SelectTopIntentId(%v) =%v\n", n, result)
-	c.IndentedJSON(http.StatusOK, result)
 }
 
-// @Summary		获取知识点TopN
+// @Summary		按枚举范围统计知识点TopN
 // @Description	点击200 Successful Response查看具体接口返回格式
 // @Tags			botAgent
 // @Accept			json
 // @Produce		json
-// @Param			n	body		model.CommonIntentRequest	true "控制参数"
-// @Success		200	{object}	[]model.StatsResponse
+// @Param			n	body		model.DurationStatsRequest	true "控制参数"
+// @Success		200	{object}	[]model.IntentResult
 // @Router			/stats [post]
-func TopIntentWithStats(c *gin.Context) {
-	n := 3
-	duration := enum.Yesterday
-	var req model.CommonIntentRequest
+func GetTopNIntentByTimeDuration(c *gin.Context) {
+	var req model.DurationStatsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		fmt.Println("request param illegal", err)
-	} else {
-		if req.N != 0 {
-			n = req.N
-		}
-		if &req.Duration != nil {
-			duration = req.Duration
-		}
+		fmt.Println("请求参数有误:", err)
+		c.AbortWithStatusJSON(http.StatusBadRequest, "请求参数有误: "+fmt.Sprint(err))
+		return
 	}
+	var result = make([]model.IntentResult, 0)
 
-	var startUnixTime int64
-	var endUnixTime int64
-
-	now := time.Now()
-	todayTime := time.Duration(now.Hour())*time.Hour + time.Duration(now.Minute())*time.Minute + time.Duration(now.Second())*time.Second
-	endUnixTime = now.Add(-todayTime).Unix()
-
+	//检查Duration对应的缓存是否存在
+	cacheHit := false
+	var cacheValueBytes []byte
 	var err error
-	var result []model.StatsResponse
-	switch duration {
+	switch req.Duration {
 	case enum.Yesterday:
-		startUnixTime = now.Add(-1 * 24 * time.Hour).Add(-todayTime).Unix()
-
-		//缓存检查
-		s, err := middleware.Rdb.Get(context.Background(), "topn_yesterday").Bytes()
-		if err == nil {
-			json.Unmarshal(s, &result)
-			fmt.Println("yesterday cache hit")
-		}
+		cacheValueBytes, err = middleware.Rdb.Get(context.Background(), "topn_yesterday").Bytes()
 	case enum.Recent7day:
-		startUnixTime = now.Add(-7 * 24 * time.Hour).Add(-todayTime).Unix()
-
-		//缓存检查
-		s, err := middleware.Rdb.Get(context.Background(), "topn_recent7day").Bytes()
-		if err == nil {
-			json.Unmarshal(s, &result)
-			fmt.Println("Recent7day cache hit")
-		}
+		cacheValueBytes, err = middleware.Rdb.Get(context.Background(), "topn_recent7day").Bytes()
 	case enum.Recent30day:
-		startUnixTime = now.Add(-30 * 24 * time.Hour).Add(-todayTime).Unix()
-
-		//缓存检查
-		s, err := middleware.Rdb.Get(context.Background(), "topn_recent30day").Bytes()
-		if err == nil {
-			json.Unmarshal(s, &result)
-			fmt.Println("Recent30day cache hit")
-		}
+		cacheValueBytes, err = middleware.Rdb.Get(context.Background(), "topn_recent30day").Bytes()
 	case enum.Recent90day:
-		startUnixTime = now.Add(-90 * 24 * time.Hour).Add(-todayTime).Unix()
-
-		//缓存检查
-		s, err := middleware.Rdb.Get(context.Background(), "topn_recent90day").Bytes()
-		if err == nil {
-			json.Unmarshal(s, &result)
-			fmt.Println("Recent90day cache hit")
-		}
+		cacheValueBytes, err = middleware.Rdb.Get(context.Background(), "topn_recent90day").Bytes()
 	case enum.LastWeek:
-		daysUtilLastSunday := now.Weekday()
-		if now.Weekday() == time.Sunday {
-			daysUtilLastSunday = 7
-		}
-		startUnixTime = now.Add(time.Duration(-24*(daysUtilLastSunday+7)) * time.Hour).Unix()
-		endUnixTime = now.Add(time.Duration(-24*daysUtilLastSunday) * time.Hour).Unix()
+		cacheValueBytes = nil
 	case enum.LastMonth:
-		startUnixTime = time.Date(now.Year(), now.Month()-1, 1, 0, 0, 0, 0, nil).Unix()
-		endUnixTime = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, nil).Unix()
+		cacheValueBytes = nil
+	}
+	if err == nil && cacheValueBytes != nil && len(cacheValueBytes) > 0 {
+		err = json.Unmarshal(cacheValueBytes, &result)
+		if err != nil {
+			panic(err)
+		}
+		cacheHit = true
+		fmt.Println("cache hit, req.Duration=", req.Duration)
 	}
 
 	//缓存未命中，从db查询
-	if result == nil {
-		fmt.Println("缓存未命中")
-		resultMap, _ := r.SelectTopIntentByDailyRank(startUnixTime, endUnixTime, n)
-		tool.Map2struct(resultMap, &result)
+	if !cacheHit {
+		nowTime := time.Now()
+		//todayStartTime对应今天的0点0分
+		todayStartTime := nowTime.Add(-tool.TodayUsedTimeDuration())
+
+		var queryStartTime time.Time
+		var queryEndTime = todayStartTime
+		switch req.Duration {
+		case enum.Yesterday:
+			queryStartTime = todayStartTime.Add(-1 * 24 * time.Hour)
+		case enum.Recent7day:
+			queryStartTime = todayStartTime.Add(-7 * 24 * time.Hour)
+		case enum.Recent30day:
+			queryStartTime = todayStartTime.Add(-30 * 24 * time.Hour)
+		case enum.Recent90day:
+			queryStartTime = todayStartTime.Add(-90 * 24 * time.Hour)
+		case enum.LastWeek:
+			daysUtilLastSunday := nowTime.Weekday()
+			if nowTime.Weekday() == time.Sunday {
+				daysUtilLastSunday = 7
+			}
+			queryStartTime = todayStartTime.Add(time.Duration(-24*(daysUtilLastSunday+7)) * time.Hour)
+			queryEndTime = todayStartTime.Add(time.Duration(-24*daysUtilLastSunday) * time.Hour)
+		case enum.LastMonth:
+			if nowTime.Month() == 1 {
+				queryStartTime = time.Date(nowTime.Year()-1, 12, 1, 0, 0, 0, 0, time.Local)
+			} else {
+				queryStartTime = time.Date(nowTime.Year(), nowTime.Month()-1, 1, 0, 0, 0, 0, time.Local)
+			}
+			queryEndTime = queryStartTime.AddDate(0, 1, 0)
+		}
+
+		if result == nil || len(result) == 0 {
+			result, err = r.SelectTopNIntentByDailyRank(queryStartTime.Unix(), queryEndTime.Unix(), req.N)
+		}
 	}
 
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, err)
+		c.AbortWithStatusJSON(http.StatusBadRequest, "内部错误，请联系管理员")
 		panic(err)
+	} else {
+		c.IndentedJSON(http.StatusOK, result)
 	}
-	c.IndentedJSON(http.StatusOK, result)
-
 }
 
 // @Summary		手动刷新统计数据缓存
@@ -165,12 +143,19 @@ func TopIntentWithStats(c *gin.Context) {
 // @Accept			json
 // @Produce		json
 // @Success		200	body	string
-// @Router			/flush [post]
+// @Router			/flush [get]
 func UpdateStatsCache(c *gin.Context) {
 	cron.UpdateCacheJob()
 	c.IndentedJSON(http.StatusOK, "现在开始执行刷新缓存任务")
 }
 
+// @Summary		总记录数
+// @Accept			json
+// @Description	返回bot_response总行数
+// @Tags			开发测试
+// @Produce		json
+// @Success		200	body	string
+// @Router			/count [get]
 func CountAllRecord(c *gin.Context) {
 	count, err := r.Count()
 	if err != nil {

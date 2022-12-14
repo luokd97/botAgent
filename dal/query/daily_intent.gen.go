@@ -29,7 +29,7 @@ func newDailyIntent(db *gorm.DB, opts ...gen.DOOption) dailyIntent {
 	tableName := _dailyIntent.dailyIntentDo.TableName()
 	_dailyIntent.ALL = field.NewAsterisk(tableName)
 	_dailyIntent.ID = field.NewUint(tableName, "id")
-	_dailyIntent.UnixTime = field.NewInt64(tableName, "unix_time")
+	_dailyIntent.Date = field.NewInt64(tableName, "date")
 	_dailyIntent.IntentId = field.NewString(tableName, "intent_id")
 	_dailyIntent.Count_ = field.NewInt(tableName, "count")
 
@@ -43,7 +43,7 @@ type dailyIntent struct {
 
 	ALL      field.Asterisk
 	ID       field.Uint
-	UnixTime field.Int64
+	Date     field.Int64
 	IntentId field.String
 	Count_   field.Int
 
@@ -63,7 +63,7 @@ func (d dailyIntent) As(alias string) *dailyIntent {
 func (d *dailyIntent) updateTableName(table string) *dailyIntent {
 	d.ALL = field.NewAsterisk(table)
 	d.ID = field.NewUint(table, "id")
-	d.UnixTime = field.NewInt64(table, "unix_time")
+	d.Date = field.NewInt64(table, "date")
 	d.IntentId = field.NewString(table, "intent_id")
 	d.Count_ = field.NewInt(table, "count")
 
@@ -84,7 +84,7 @@ func (d *dailyIntent) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 func (d *dailyIntent) fillFieldMap() {
 	d.fieldMap = make(map[string]field.Expr, 4)
 	d.fieldMap["id"] = d.ID
-	d.fieldMap["unix_time"] = d.UnixTime
+	d.fieldMap["date"] = d.Date
 	d.fieldMap["intent_id"] = d.IntentId
 	d.fieldMap["count"] = d.Count_
 }
@@ -161,60 +161,22 @@ type IDailyIntentDo interface {
 	UnderlyingDB() *gorm.DB
 	schema.Tabler
 
-	FilterWithNameAndRole(name string, role string) (result []model.DailyIntent, err error)
-	SelectTopIntentId(n int) (result []map[string]interface{}, err error)
-	SelectTopIntentIdByTime(startTime int64, endTime int64, n int) (result []map[string]interface{}, err error)
-	GetIntentNameByIntentId(intentId string) (result string, err error)
-	SelectTopIntentByDailyRank(startTime int64, endTime int64, n int) (result []map[string]interface{}, err error)
-	SelectNewestIntentNamesByIntentIds(intentIds []string) (result []string, err error)
-	SelectIntentIdMapIntentName() (result map[string]string, err error)
+	SelectTopNIntentByTime(startTime int64, endTime int64, n int) (result []model.IntentResult, err error)
+	SelectTopNIntentByDailyRank(startTime int64, endTime int64, n int) (result []model.IntentResult, err error)
+	SelectIntentIdMapIntentName() (result []map[string]interface{}, err error)
 }
 
-// SELECT * FROM @@table WHERE name = @name{{if role !=""}} AND role = @role{{end}}
-func (d dailyIntentDo) FilterWithNameAndRole(name string, role string) (result []model.DailyIntent, err error) {
-	var params []interface{}
-
-	var generateSQL strings.Builder
-	params = append(params, name)
-	generateSQL.WriteString("SELECT * FROM daily_intent WHERE name = ? ")
-	if role != "" {
-		params = append(params, role)
-		generateSQL.WriteString("AND role = ? ")
-	}
-
-	var executeSQL *gorm.DB
-
-	executeSQL = d.UnderlyingDB().Raw(generateSQL.String(), params...).Find(&result)
-	err = executeSQL.Error
-	return
-}
-
-// select intent_id, count(*) cnt from `bot_response` group by intent_id order by cnt desc limit @n
-func (d dailyIntentDo) SelectTopIntentId(n int) (result []map[string]interface{}, err error) {
-	var params []interface{}
-
-	var generateSQL strings.Builder
-	params = append(params, n)
-	generateSQL.WriteString("select intent_id, count(*) cnt from `bot_response` group by intent_id order by cnt desc limit ? ")
-
-	var executeSQL *gorm.DB
-
-	executeSQL = d.UnderlyingDB().Raw(generateSQL.String(), params...).Find(&result)
-	err = executeSQL.Error
-	return
-}
-
-// select intent_id, count(*) cnt,
-// (select intent_name from bot_response where intent_id=br.intent_id  order by unix_time desc limit 1) as intent_name
-// from `bot_response` br where unix_time between @startTime and @endTime group by intent_id order by cnt desc limit @n
-func (d dailyIntentDo) SelectTopIntentIdByTime(startTime int64, endTime int64, n int) (result []map[string]interface{}, err error) {
+// select intent_id, count(*) count,
+// (select intent_name from bot_response where intent_id=br.intent_id  order by created_at desc limit 1) as intent_name
+// from `bot_response` br where created_at between @startTime and @endTime group by intent_id order by count desc limit @n
+func (d dailyIntentDo) SelectTopNIntentByTime(startTime int64, endTime int64, n int) (result []model.IntentResult, err error) {
 	var params []interface{}
 
 	var generateSQL strings.Builder
 	params = append(params, startTime)
 	params = append(params, endTime)
 	params = append(params, n)
-	generateSQL.WriteString("select intent_id, count(*) cnt, (select intent_name from bot_response where intent_id=br.intent_id order by unix_time desc limit 1) as intent_name from `bot_response` br where unix_time between ? and ? group by intent_id order by cnt desc limit ? ")
+	generateSQL.WriteString("select intent_id, count(*) count, (select intent_name from bot_response where intent_id=br.intent_id order by created_at desc limit 1) as intent_name from `bot_response` br where created_at between ? and ? group by intent_id order by count desc limit ? ")
 
 	var executeSQL *gorm.DB
 
@@ -223,32 +185,17 @@ func (d dailyIntentDo) SelectTopIntentIdByTime(startTime int64, endTime int64, n
 	return
 }
 
-// select intent_name from bot_response where intent_id = @intentId order by created_at desc limit 1
-func (d dailyIntentDo) GetIntentNameByIntentId(intentId string) (result string, err error) {
-	var params []interface{}
-
-	var generateSQL strings.Builder
-	params = append(params, intentId)
-	generateSQL.WriteString("select intent_name from bot_response where intent_id = ? order by created_at desc limit 1 ")
-
-	var executeSQL *gorm.DB
-
-	executeSQL = d.UnderlyingDB().Raw(generateSQL.String(), params...).Take(&result)
-	err = executeSQL.Error
-	return
-}
-
-// select intent_id, sum(count) total_cnt,
-// (select intent_name from bot_response where intent_id=di.intent_id order by unix_time desc limit 1) as intent_name
-// from `daily_intent` di where unix_time between @startTime and @endTime group by intent_id order by total_cnt desc limit @n
-func (d dailyIntentDo) SelectTopIntentByDailyRank(startTime int64, endTime int64, n int) (result []map[string]interface{}, err error) {
+// select intent_id, sum(count) count,
+// (select intent_name from bot_response where intent_id=di.intent_id order by created_at desc limit 1) as intent_name
+// from `daily_intent` di where date between @startTime and @endTime group by intent_id order by count desc limit @n
+func (d dailyIntentDo) SelectTopNIntentByDailyRank(startTime int64, endTime int64, n int) (result []model.IntentResult, err error) {
 	var params []interface{}
 
 	var generateSQL strings.Builder
 	params = append(params, startTime)
 	params = append(params, endTime)
 	params = append(params, n)
-	generateSQL.WriteString("select intent_id, sum(count) total_cnt, (select intent_name from bot_response where intent_id=di.intent_id order by unix_time desc limit 1) as intent_name from `daily_intent` di where unix_time between ? and ? group by intent_id order by total_cnt desc limit ? ")
+	generateSQL.WriteString("select intent_id, sum(count) count, (select intent_name from bot_response where intent_id=di.intent_id order by created_at desc limit 1) as intent_name from `daily_intent` di where date between ? and ? group by intent_id order by count desc limit ? ")
 
 	var executeSQL *gorm.DB
 
@@ -257,36 +204,14 @@ func (d dailyIntentDo) SelectTopIntentByDailyRank(startTime int64, endTime int64
 	return
 }
 
-// select intent_name from (select * from `bot_response` order by unix_time desc limit 100000000) as b
-// where intent_id in (@intentIds)  group by intent_id order by field(intent_id {{for _,id:=range intentIds}},@id{{end}} )
-func (d dailyIntentDo) SelectNewestIntentNamesByIntentIds(intentIds []string) (result []string, err error) {
-	var params []interface{}
-
+// select intent_id, intent_name from (select * from `bot_response` order by created_at desc limit 100000000) as b  group by intent_id
+func (d dailyIntentDo) SelectIntentIdMapIntentName() (result []map[string]interface{}, err error) {
 	var generateSQL strings.Builder
-	params = append(params, intentIds)
-	generateSQL.WriteString("select intent_name from (select * from `bot_response` order by unix_time desc limit 100000000) as b where intent_id in (?) group by intent_id order by field(intent_id ")
-	for _, id := range intentIds {
-		params = append(params, id)
-		generateSQL.WriteString(",? ")
-	}
-	generateSQL.WriteString(") ")
+	generateSQL.WriteString("select intent_id, intent_name from (select * from `bot_response` order by created_at desc limit 100000000) as b group by intent_id ")
 
 	var executeSQL *gorm.DB
 
-	executeSQL = d.UnderlyingDB().Raw(generateSQL.String(), params...).Find(&result)
-	err = executeSQL.Error
-	return
-}
-
-// select intent_id, intent_name from (select * from `bot_response` order by unix_time desc limit 100000000) as b  group by intent_id
-func (d dailyIntentDo) SelectIntentIdMapIntentName() (result map[string]string, err error) {
-	var generateSQL strings.Builder
-	generateSQL.WriteString("select intent_id, intent_name from (select * from `bot_response` order by unix_time desc limit 100000000) as b group by intent_id ")
-
-	result = make(map[string]string)
-	var executeSQL *gorm.DB
-
-	executeSQL = d.UnderlyingDB().Raw(generateSQL.String()).Take(result)
+	executeSQL = d.UnderlyingDB().Raw(generateSQL.String()).Find(&result)
 	err = executeSQL.Error
 	return
 }
