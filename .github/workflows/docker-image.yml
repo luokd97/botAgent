@@ -1,0 +1,23 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build the Docker image
+      run: docker build . --file Dockerfile --tag luokd97/bot-agent:$(date +%s) --tag luokd97/bot-agent:latest
+      
+    - name: Push the Docker image to Docker hub
+      run: docker push luokd97/bot-agent:latest
+
+    
