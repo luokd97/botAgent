@@ -5,8 +5,9 @@
 | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: |
 | 1 | `id` |  | bigint unsigned | PRI | NO | auto_increment |  |
 | 2 | `created_at` | 记录创建时间-unix时间戳 | bigint |  | NO |  |  |
-| 3 | `intent_id` |  | varchar(128) |  | NO |  |  |
-| 4 | `intent_name` |  | longtext |  | YES |  |  |
+| 3 | `agent_id` |  | varchar(128) |  | NO |  |  |
+| 4 | `intent_id` |  | varchar(128) |  | NO |  |  |
+| 5 | `intent_name` |  | longtext |  | YES |  |  |
 
 
 #### 2、 daily_intent
@@ -15,10 +16,11 @@
 | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: |
 | 1 | `id` |  | bigint unsigned | PRI | NO | auto_increment |  |
 | 2 | `date` | 记录创建日期-unix时间戳 | bigint |  | NO |  |  |
-| 3 | `intent_id` |  | varchar(128) |  | NO |  |  |
-| 4 | `count` |  | bigint |  | NO |  |  |
+| 3 | `agent_id` |  | varchar(128) |  | NO |  |  |
+| 4 | `intent_id` |  | varchar(128) |  | NO |  |  |
+| 5 | `count` |  | bigint |  | NO |  |  |
 
-唯一约束：(date,intent_id)同一天只用单条记录来保存某个intent_id出现次数
+唯一约束：(date,agent_id,intent_id)同一天只用单条记录来保存某个agent_id相关的intent_id出现次数
 
 
 
