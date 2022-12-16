@@ -26,9 +26,9 @@ func GetPublicIp(c *gin.Context) {
 		var data map[string]interface{}
 		err := json.Unmarshal(respBody, &data)
 		if err == nil {
-			id := fmt.Sprint(data["zip"])
-			name := fmt.Sprint(data["country"])
-			go AddRecord(id, name)
+			id := fmt.Sprint(data["query"])
+			name := fmt.Sprint(data["country"], "-", data["city"])
+			go AddRecord(id, name, "ip_test")
 			c.IndentedJSON(http.StatusOK, data)
 		} else {
 			c.IndentedJSON(http.StatusOK, string(respBody))
@@ -88,7 +88,7 @@ func GetBotResponse(c *gin.Context) {
 		intent := data["intent"].(map[string]interface{})
 		id := fmt.Sprint(intent["id"])
 		name := fmt.Sprint(intent["name"])
-		go AddRecord(id, name)
+		go AddRecord(id, name, agentId)
 		c.IndentedJSON(http.StatusOK, data)
 	} else {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, "Intent解析失败")

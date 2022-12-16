@@ -19,13 +19,15 @@ func main() {
 
 	//对外Api
 	r.POST("/chatbot/v1alpha1/agents/:agentId/channels/:channelId/getReply", api.GetBotResponse)
-	r.POST("/topn", api.GetTopNIntentByTimeDuration)
+	r.POST("/chatbot/v1alpha1/agents/:agentId/stats/topn", api.GetTopNIntentByTimeDuration)
 
 	//调试Api
-	r.POST("/v2/topn", api.GetTopNIntentByExactTime)
-	r.GET("/ip", api.GetPublicIp)
-	r.GET("/count", api.CountAllRecord)
-	r.POST("/flush", api.UpdateStatsCache)
+	r.POST("/dev/topn", api.GetTopNIntentByExactTime)
+	r.GET("/dev/ip", api.GetPublicIp)
+	r.GET("/dev/count", api.CountAllRecord)
+	r.POST("/dev/flush", api.UpdateStatsCache)
+	r.GET("/dev/time", api.ShowUnixTimeInfo)
+	r.GET("/dev/init", api.FillTestData)
 
 	//api文档资源
 	r.StaticFile("/v2/swagger.json", "./docs/swagger.json")
@@ -33,7 +35,7 @@ func main() {
 	fmt.Println("Documentation served at http://127.0.0.1:8000/docs")
 
 	//启动定时任务
-	cron.UpdateCacheCron()
+	cron.DailyUpdateCacheCron()
 
 	r.Run(":8000")
 }

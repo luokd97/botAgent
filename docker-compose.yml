@@ -1,6 +1,7 @@
 version: '3'
 services:
   web:
+    image: bot-agent:v0.1
     build: .
     depends_on:
       - mysql

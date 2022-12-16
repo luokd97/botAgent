@@ -31,6 +31,7 @@ func init() {
 		"mysql_pass":   "12345678",
 		"mysql_dbname": "bot_agent",
 		"redis_url":    "localhost:6379",
+		"max_n":        "10000",
 	}
 
 	globalConfig[docker] = map[string]string{
@@ -39,6 +40,7 @@ func init() {
 		"mysql_pass":   "12345678",
 		"mysql_dbname": "bot_agent",
 		"redis_url":    "redis:6379",
+		"max_n":        "10000",
 	}
 }
 

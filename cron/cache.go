@@ -1,6 +1,7 @@
 package cron
 
 import (
+	"botApiStats/config"
 	"botApiStats/dal"
 	"botApiStats/dal/model"
 	"botApiStats/dal/query"
@@ -10,6 +11,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/robfig/cron/v3"
+	"gorm.io/gorm/clause"
+	"strconv"
 	"time"
 )
 
@@ -17,95 +20,64 @@ var ctx = context.Background()
 var r = query.Use(dal.Db).BotResponse
 var d = query.Use(dal.Db).DailyIntent
 
-func TestCron() {
-	fmt.Println("start cron test")
-	c := cron.New()
-	EntryID, err := c.AddFunc("@every 5s", func() { fmt.Println("Every 5s") })
-	fmt.Println(time.Now(), EntryID, err)
+var maxN, _ = strconv.Atoi(config.Get("max_n"))
 
-	c.Start()
-}
-
-func UpdateCacheCron() {
+// DailyUpdateCacheCron 每天凌晨2点，整理前一天的TopN保存到daily_intent表
+func DailyUpdateCacheCron() {
 	c := cron.New()
 	fmt.Println(time.Now(), "每天凌晨2点执行一次")
-	EntryID, err := c.AddFunc("0 0 2 * * ?", UpdateCacheJob)
+	EntryID, err := c.AddFunc("0 0 2 * * ?", DailyUpdateCacheJob)
 	fmt.Println(time.Now(), EntryID, err)
 	c.Start()
 	fmt.Println("定时任务UpdateCacheJob已启动")
 }
 
-func UpdateCacheJob() {
-	//更新缓存
+func DailyUpdateCacheJob() {
 	fmt.Println(time.Now(), "开始更新缓存")
-	updateYesterdayTopN() //缓存昨天topN结果
+	CollectOneDayIntentCount(1) //整理昨日topN保存到daily_intent表
 
-	updateRecentNDayTopN(7)  //缓存过去7天topN结果
-	updateRecentNDayTopN(30) //缓存过去30天topN结果
-	updateRecentNDayTopN(90) //缓存过去90天topN结果
+	UpdateRecentNDayTopN(1)  //缓存昨天topN结果
+	UpdateRecentNDayTopN(7)  //缓存过去7天topN结果
+	UpdateRecentNDayTopN(30) //缓存过去30天topN结果
+	UpdateRecentNDayTopN(90) //缓存过去90天topN结果
 	fmt.Println(time.Now(), "缓存更新完成")
 }
 
-// 统计昨日topN，保存到daily_intent表
-func updateYesterdayTopN() {
-	//获取昨日topN列表
-	dayIntents := CollectOneDayIntentCount(1)
-
-	//获取map[intent_id] -> 最新intent_name
-	idNameMap := make(map[string]string)
-	result, _ := r.SelectIntentIdMapIntentName()
-	for i := range result {
-		in := result[i]
-		idNameMap[in["intent_id"].(string)] = in["intent_name"].(string)
+// UpdateDailyIntentFrom3MonthAgo 手动触发，整理三个月内的response更新到daily_intent表
+func UpdateDailyIntentFrom3MonthAgo() {
+	for i := 1; i <= 90; i++ {
+		CollectOneDayIntentCount(i)
 	}
-
-	yesterdayTopNIntents := make([]model.IntentResult, 0)
-	for _, dayIntent := range dayIntents {
-		yesterdayTopNIntents = append(yesterdayTopNIntents, model.IntentResult{
-			Count:      dayIntent.Count,
-			IntentId:   dayIntent.IntentId,
-			IntentName: idNameMap[dayIntent.IntentId],
-		})
-	}
-	data, err := json.Marshal(yesterdayTopNIntents)
-	if err != nil {
-		panic(err)
-	}
-	err = middleware.Rdb.Set(ctx, "topn_yesterday", data, 48*time.Hour).Err()
-	if err != nil {
-		panic(err)
-	}
-
 }
 
-// 整理最近n天的intent数据
-func updateRecentNDayTopN(n int) {
-	nowTime := time.Now()
-	startTime := nowTime.Add(time.Duration(-n*24) * time.Hour).Add(-tool.TodayUsedTimeDuration())
-	endTime := nowTime.Add(-tool.TodayUsedTimeDuration())
+// UpdateRecentNDayTopN 从daily_intent表中查询并缓存最近n天的intent数据
+func UpdateRecentNDayTopN(n int) {
+	todayUnixDay := tool.UnixEpochDaysSince1970(nil)
+	startDay := todayUnixDay - n
+	endDay := todayUnixDay - 1
 
-	var err error
-	var result []model.IntentResult
-	result, _ = r.SelectTopNIntentByDailyRank(startTime.Unix(), endTime.Unix(), n)
+	result, err := r.SelectTopNIntentByDailyRank(int64(startDay), int64(endDay), maxN, "")
 
 	data, err := json.Marshal(result)
 	if err != nil {
 		panic(err)
 	}
-	err = middleware.Rdb.Set(ctx, fmt.Sprint("topn_recent", n, "day"), data, 48*time.Hour).Err()
+	beforeTomorrow := 24*time.Hour - tool.TodayUsedTimeDuration()
+	cacheKey := fmt.Sprint("topn_recent", n, "day")
+	err = middleware.Rdb.Set(ctx, cacheKey, data, beforeTomorrow).Err()
+	fmt.Println(cacheKey, " expiration after:", beforeTomorrow)
 	if err != nil {
 		panic(err)
 	}
 }
 
-// 整理某一天的Intent数据，入参dayAgo表示距今已有几天，昨天dayAgo=1
+// CollectOneDayIntentCount 整理某一天的Intent数据写入daily_intent表，入参dayAgo表示距今已有几天，昨天dayAgo=1
 func CollectOneDayIntentCount(daysAgo int) []*model.DailyIntent {
-	nowTime := time.Now()
-	startDayTime := nowTime.Add(time.Duration(-daysAgo*24) * time.Hour).Add(-tool.TodayUsedTimeDuration())
-	endDayTime := startDayTime.AddDate(0, 0, 1)
+	startTime := time.Now().AddDate(0, 0, -daysAgo).Add(-tool.TodayUsedTimeDuration())
+	endTime := startTime.AddDate(0, 0, 1)
 
 	var topIntents []model.IntentResult
-	topIntents, err := r.SelectTopNIntentByTime(startDayTime.Unix(), endDayTime.Unix(), 1000)
+	topIntents, err := r.SelectTopNIntentByTime(startTime.Unix(), endTime.Unix(), maxN, "")
 	if err != nil {
 		panic(err)
 	}
@@ -113,13 +85,14 @@ func CollectOneDayIntentCount(daysAgo int) []*model.DailyIntent {
 	var dayIntentData []*model.DailyIntent
 	for _, intent := range topIntents {
 		dayIntentData = append(dayIntentData, &model.DailyIntent{
-			Date:     startDayTime.Unix(),
+			Date:     int64(tool.UnixEpochDaysSince1970(nil) - daysAgo),
+			AgentId:  intent.AgentId,
 			IntentId: intent.IntentId,
 			Count:    intent.Count})
 	}
-	err = d.CreateInBatches(dayIntentData, len(dayIntentData))
+	err = d.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(dayIntentData, len(dayIntentData))
 	if err != nil {
-		return nil
+		panic(err)
 	}
 
 	return dayIntentData

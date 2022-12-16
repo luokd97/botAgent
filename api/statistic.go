@@ -13,13 +13,14 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"strings"
 	"time"
 )
 
 var r = query.Use(dal.Db).BotResponse
 
-func AddRecord(id string, name string) {
-	r.Create(&model.BotResponse{IntentId: id, IntentName: name, CreatedAt: time.Now().Unix()})
+func AddRecord(id string, name string, agentId string) {
+	r.Create(&model.BotResponse{AgentId: agentId, IntentId: id, IntentName: name, CreatedAt: time.Now().Unix()})
 }
 
 // @Summary		按精确范围统计知识点TopN
@@ -38,7 +39,7 @@ func GetTopNIntentByExactTime(c *gin.Context) {
 		return
 	}
 	var result []model.IntentResult
-	result, err := r.SelectTopNIntentByTime(req.StartTime, req.EndTime, req.N)
+	result, err := r.SelectTopNIntentByTime(req.StartTime, req.EndTime, req.N, req.AgentId)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, "内部错误，请联系管理员")
 		panic(err)
@@ -54,8 +55,14 @@ func GetTopNIntentByExactTime(c *gin.Context) {
 // @Produce		json
 // @Param			n	body		model.DurationStatsRequest	true "控制参数"
 // @Success		200	{object}	[]model.IntentResult
-// @Router			/stats [post]
+// @Router			/chatbot/v1alpha1/agents/{agentId}/stats/topn [post]
 func GetTopNIntentByTimeDuration(c *gin.Context) {
+	agentId := c.Param("agentId")
+	if agentId == "" {
+		c.AbortWithStatusJSON(http.StatusBadRequest, "请求参数有误: agentId")
+		return
+	}
+
 	var req model.DurationStatsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		fmt.Println("请求参数有误:", err)
@@ -70,7 +77,7 @@ func GetTopNIntentByTimeDuration(c *gin.Context) {
 	var err error
 	switch req.Duration {
 	case enum.Yesterday:
-		cacheValueBytes, err = middleware.Rdb.Get(context.Background(), "topn_yesterday").Bytes()
+		cacheValueBytes, err = middleware.Rdb.Get(context.Background(), "topn_recent1day").Bytes()
 	case enum.Recent7day:
 		cacheValueBytes, err = middleware.Rdb.Get(context.Background(), "topn_recent7day").Bytes()
 	case enum.Recent30day:
@@ -83,7 +90,14 @@ func GetTopNIntentByTimeDuration(c *gin.Context) {
 		cacheValueBytes = nil
 	}
 	if err == nil && cacheValueBytes != nil && len(cacheValueBytes) > 0 {
-		err = json.Unmarshal(cacheValueBytes, &result)
+		cacheResult := make([]model.IntentResult, 0)
+		err = json.Unmarshal(cacheValueBytes, &cacheResult)
+		//过滤缓存结果中非当前agentId的数据
+		for i := range cacheResult {
+			if cacheResult[i].AgentId == agentId {
+				result = append(result, cacheResult[i])
+			}
+		}
 		if err != nil {
 			panic(err)
 		}
@@ -93,39 +107,29 @@ func GetTopNIntentByTimeDuration(c *gin.Context) {
 
 	//缓存未命中，从db查询
 	if !cacheHit {
-		nowTime := time.Now()
-		//todayStartTime对应今天的0点0分
-		todayStartTime := nowTime.Add(-tool.TodayUsedTimeDuration())
+		todayUnixDay := tool.UnixEpochDaysSince1970(nil)
+		var queryStartDay int
+		var queryEndDay = todayUnixDay
 
-		var queryStartTime time.Time
-		var queryEndTime = todayStartTime
 		switch req.Duration {
 		case enum.Yesterday:
-			queryStartTime = todayStartTime.Add(-1 * 24 * time.Hour)
+			queryStartDay = tool.UnixEpochDaysSince1970(nil) - 1
 		case enum.Recent7day:
-			queryStartTime = todayStartTime.Add(-7 * 24 * time.Hour)
+			queryStartDay = tool.UnixEpochDaysSince1970(nil) - 7
 		case enum.Recent30day:
-			queryStartTime = todayStartTime.Add(-30 * 24 * time.Hour)
+			queryStartDay = tool.UnixEpochDaysSince1970(nil) - 30
 		case enum.Recent90day:
-			queryStartTime = todayStartTime.Add(-90 * 24 * time.Hour)
+			queryStartDay = tool.UnixEpochDaysSince1970(nil) - 90
 		case enum.LastWeek:
-			daysUtilLastSunday := nowTime.Weekday()
-			if nowTime.Weekday() == time.Sunday {
-				daysUtilLastSunday = 7
-			}
-			queryStartTime = todayStartTime.Add(time.Duration(-24*(daysUtilLastSunday+7)) * time.Hour)
-			queryEndTime = todayStartTime.Add(time.Duration(-24*daysUtilLastSunday) * time.Hour)
+			start, end := tool.LastWeekUnixTimeRange()
+			queryStartDay, queryEndDay = tool.UnixEpochDaysSince1970(&start), tool.UnixEpochDaysSince1970(&end)
 		case enum.LastMonth:
-			if nowTime.Month() == 1 {
-				queryStartTime = time.Date(nowTime.Year()-1, 12, 1, 0, 0, 0, 0, time.Local)
-			} else {
-				queryStartTime = time.Date(nowTime.Year(), nowTime.Month()-1, 1, 0, 0, 0, 0, time.Local)
-			}
-			queryEndTime = queryStartTime.AddDate(0, 1, 0)
+			start, end := tool.LastMonthUnixTimeRange()
+			queryStartDay, queryEndDay = tool.UnixEpochDaysSince1970(&start), tool.UnixEpochDaysSince1970(&end)
 		}
 
 		if result == nil || len(result) == 0 {
-			result, err = r.SelectTopNIntentByDailyRank(queryStartTime.Unix(), queryEndTime.Unix(), req.N)
+			result, err = r.SelectTopNIntentByDailyRank(int64(queryStartDay), int64(queryEndDay), req.N, agentId)
 		}
 	}
 
@@ -137,15 +141,19 @@ func GetTopNIntentByTimeDuration(c *gin.Context) {
 	}
 }
 
-// @Summary		手动刷新统计数据缓存
-// @Description	刷新昨日、近7天、近30天、近90天的TopN缓存结果
+// @Summary		整理历史数据并刷新缓存
+// @Description	整理90天内的bot_response表数据并写入daily_intent；刷新昨日、近7天、近30天、近90天的TopN缓存结果
 // @Tags			开发测试
 // @Accept			json
 // @Produce		json
 // @Success		200	body	string
 // @Router			/flush [get]
 func UpdateStatsCache(c *gin.Context) {
-	cron.UpdateCacheJob()
+	cron.UpdateDailyIntentFrom3MonthAgo()
+	cron.UpdateRecentNDayTopN(1)  //缓存昨天topN结果
+	cron.UpdateRecentNDayTopN(7)  //缓存过去7天topN结果
+	cron.UpdateRecentNDayTopN(30) //缓存过去30天topN结果
+	cron.UpdateRecentNDayTopN(90) //缓存过去90天topN结果
 	c.IndentedJSON(http.StatusOK, "现在开始执行刷新缓存任务")
 }
 
@@ -163,4 +171,80 @@ func CountAllRecord(c *gin.Context) {
 	}
 	fmt.Println(count)
 	c.IndentedJSON(http.StatusOK, count)
+}
+
+// @Summary		打印当前unixTime等信息
+// @Accept			json
+// @Description	打印现在、今天、昨天、x天前等时间段的unix秒，unix天
+// @Tags			开发测试
+// @Produce		json
+// @Success		200	body	string
+// @Router			/time [get]
+func ShowUnixTimeInfo(c *gin.Context) {
+	todayStartTimeUnix := time.Now().Add(-tool.TodayUsedTimeDuration()).Unix()
+	oneDayUnixTime := time.Unix(60*60*24, 0).Unix()
+
+	wstart, wend := tool.LastWeekUnixTimeRange()
+	mstart, mend := tool.LastMonthUnixTimeRange()
+	result := [][4]any{
+		{"now", time.Now().Unix()},
+		{"yesterday_start", todayStartTimeUnix - oneDayUnixTime},
+		{"yesterday_end", todayStartTimeUnix},
+		{"recent7day_start", todayStartTimeUnix - 7*oneDayUnixTime},
+		{"recent7day_end", todayStartTimeUnix},
+		{"recent30day_start", todayStartTimeUnix - 30*oneDayUnixTime},
+		{"recent30day_end", todayStartTimeUnix},
+		{"recent90day_start", todayStartTimeUnix - 90*oneDayUnixTime},
+		{"recent90day_end", todayStartTimeUnix},
+		{"last_week_start", wstart.Unix()},
+		{"last_week_end", wend.Unix()},
+		{"last_month_start", mstart.Unix()},
+		{"last_month_end", mend.Unix()},
+	}
+	for i := range result {
+		result[i][0] = strings.ToUpper(result[i][0].(string))
+		t := time.Unix(result[i][1].(int64), 0)
+		result[i][2] = t.String()
+		result[i][3] = tool.UnixEpochDaysSince1970(&t)
+	}
+	c.IndentedJSON(http.StatusOK, result)
+
+}
+
+// @Summary		写入一些模拟调用机器人api数据
+// // @Accept			json
+// // @Description	agent_id=[a1,a2] intent_id=[0,1,2,3]
+// // @Tags			开发测试
+// // @Produce		json
+// // @Success		200	body	string
+// // @Router			/time [get]
+func FillTestData(c *gin.Context) {
+	size := FillTestBotResponse()
+	c.IndentedJSON(http.StatusOK, fmt.Sprint("insert ", size, " record to table bot_response"))
+}
+
+func FillTestBotResponse() int {
+	now := time.Now()
+	var simpleResponseData = []*model.BotResponse{
+		//昨天
+		{CreatedAt: now.Add(-24 * time.Hour).Unix(), AgentId: "a1", IntentId: "0", IntentName: "intent0_newName"},
+		{CreatedAt: now.Add(-24 * time.Hour).Unix(), AgentId: "a1", IntentId: "1", IntentName: "intent1"},
+		{CreatedAt: now.Add(-24 * time.Hour).Unix(), AgentId: "a2", IntentId: "2", IntentName: "intent2"},
+		{CreatedAt: now.Add(-24 * time.Hour).Unix(), AgentId: "a2", IntentId: "1", IntentName: "intent1"},
+		//3天前
+		{CreatedAt: now.Add(-3 * 24 * time.Hour).Unix(), AgentId: "a1", IntentId: "0", IntentName: "intent0"},
+		{CreatedAt: now.Add(-3 * 24 * time.Hour).Unix(), AgentId: "a1", IntentId: "2", IntentName: "intent2"},
+		{CreatedAt: now.Add(-3 * 24 * time.Hour).Unix(), AgentId: "a1", IntentId: "3", IntentName: "intent3"},
+		{CreatedAt: now.Add(-3 * 24 * time.Hour).Unix(), AgentId: "a2", IntentId: "2", IntentName: "intent2"},
+		//10天前
+		{CreatedAt: now.Add(-10 * 24 * time.Hour).Unix(), AgentId: "a2", IntentId: "2", IntentName: "intent2"},
+		{CreatedAt: now.Add(-10 * 24 * time.Hour).Unix(), AgentId: "a2", IntentId: "3", IntentName: "intent3"},
+		{CreatedAt: now.Add(-10 * 24 * time.Hour).Unix(), AgentId: "a2", IntentId: "3", IntentName: "intent3"},
+	}
+	err := r.CreateInBatches(simpleResponseData, len(simpleResponseData))
+	if err != nil {
+		panic(err)
+		return 0
+	}
+	return len(simpleResponseData)
 }
