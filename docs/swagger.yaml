@@ -17,6 +17,9 @@ definitions:
     type: object
   model.ExactStatsRequest:
     properties:
+      agent_id:
+        description: 只检索这个id对应的agent（机器人）产生的记录
+        type: string
       end_time:
         description: 检索范围的结束时间 unix时间戳
         minimum: 0
@@ -37,6 +40,9 @@ definitions:
     type: object
   model.IntentResult:
     properties:
+      agent_id:
+        description: 该记录对应的agent
+        type: string
       count:
         description: 按当前条件统计到的数量
         type: integer
@@ -65,37 +71,7 @@ paths:
       summary: 代理机器人Api
       tags:
       - botAgent
-  /count:
-    get:
-      consumes:
-      - application/json
-      description: 返回bot_response总行数
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: body
-      summary: 总记录数
-      tags:
-      - 开发测试
-  /flush:
-    get:
-      consumes:
-      - application/json
-      description: 刷新昨日、近7天、近30天、近90天的TopN缓存结果
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: body
-      summary: 手动刷新统计数据缓存
-      tags:
-      - 开发测试
-  /stats:
+  /chatbot/v1alpha1/agents/{agentId}/stats/topn:
     post:
       consumes:
       - application/json
@@ -119,6 +95,51 @@ paths:
       summary: 按枚举范围统计知识点TopN
       tags:
       - botAgent
+  /count:
+    get:
+      consumes:
+      - application/json
+      description: 返回bot_response总行数
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: body
+      summary: 总记录数
+      tags:
+      - 开发测试
+  /flush:
+    get:
+      consumes:
+      - application/json
+      description: 整理90天内的bot_response表数据并写入daily_intent；刷新昨日、近7天、近30天、近90天的TopN缓存结果
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: body
+      summary: 整理历史数据并刷新缓存
+      tags:
+      - 开发测试
+  /time:
+    get:
+      consumes:
+      - application/json
+      description: 打印现在、今天、昨天、x天前等时间段的unix秒，unix天
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: body
+      summary: 打印当前unixTime等信息
+      tags:
+      - 开发测试
   /topn:
     post:
       consumes:

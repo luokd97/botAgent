@@ -27,53 +27,7 @@
                 }
             }
         },
-        "/count": {
-            "get": {
-                "description": "返回bot_response总行数",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "开发测试"
-                ],
-                "summary": "总记录数",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "body"
-                        }
-                    }
-                }
-            }
-        },
-        "/flush": {
-            "get": {
-                "description": "刷新昨日、近7天、近30天、近90天的TopN缓存结果",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "开发测试"
-                ],
-                "summary": "手动刷新统计数据缓存",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "body"
-                        }
-                    }
-                }
-            }
-        },
-        "/stats": {
+        "/chatbot/v1alpha1/agents/{agentId}/stats/topn": {
             "post": {
                 "description": "点击200 Successful Response查看具体接口返回格式",
                 "consumes": [
@@ -105,6 +59,75 @@
                             "items": {
                                 "$ref": "#/definitions/model.IntentResult"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/count": {
+            "get": {
+                "description": "返回bot_response总行数",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "开发测试"
+                ],
+                "summary": "总记录数",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "body"
+                        }
+                    }
+                }
+            }
+        },
+        "/flush": {
+            "get": {
+                "description": "整理90天内的bot_response表数据并写入daily_intent；刷新昨日、近7天、近30天、近90天的TopN缓存结果",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "开发测试"
+                ],
+                "summary": "整理历史数据并刷新缓存",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "body"
+                        }
+                    }
+                }
+            }
+        },
+        "/time": {
+            "get": {
+                "description": "打印现在、今天、昨天、x天前等时间段的unix秒，unix天",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "开发测试"
+                ],
+                "summary": "打印当前unixTime等信息",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "body"
                         }
                     }
                 }
@@ -177,6 +200,10 @@
                 "start_time"
             ],
             "properties": {
+                "agent_id": {
+                    "description": "只检索这个id对应的agent（机器人）产生的记录",
+                    "type": "string"
+                },
                 "end_time": {
                     "description": "检索范围的结束时间 unix时间戳",
                     "type": "integer",
@@ -198,6 +225,10 @@
         "model.IntentResult": {
             "type": "object",
             "properties": {
+                "agent_id": {
+                    "description": "该记录对应的agent",
+                    "type": "string"
+                },
                 "count": {
                     "description": "按当前条件统计到的数量",
                     "type": "integer"
