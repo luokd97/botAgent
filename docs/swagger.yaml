@@ -125,6 +125,21 @@ paths:
       summary: 整理历史数据并刷新缓存
       tags:
       - 开发测试
+  /init:
+    get:
+      consumes:
+      - application/json
+      description: agent_id=[a1,a2] intent_id=[0,1,2,3]
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: body
+      summary: 写入一些模拟调用机器人api数据
+      tags:
+      - 开发测试
   /time:
     get:
       consumes:

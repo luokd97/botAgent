@@ -122,6 +122,29 @@ const docTemplate = `{
                 }
             }
         },
+        "/init": {
+            "get": {
+                "description": "agent_id=[a1,a2] intent_id=[0,1,2,3]",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "开发测试"
+                ],
+                "summary": "写入一些模拟调用机器人api数据",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "body"
+                        }
+                    }
+                }
+            }
+        },
         "/time": {
             "get": {
                 "description": "打印现在、今天、昨天、x天前等时间段的unix秒，unix天",

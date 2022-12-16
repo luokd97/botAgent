@@ -212,12 +212,12 @@ func ShowUnixTimeInfo(c *gin.Context) {
 }
 
 // @Summary		写入一些模拟调用机器人api数据
-// // @Accept			json
-// // @Description	agent_id=[a1,a2] intent_id=[0,1,2,3]
-// // @Tags			开发测试
-// // @Produce		json
-// // @Success		200	body	string
-// // @Router			/init [get]
+// @Accept			json
+// @Description	agent_id=[a1,a2] intent_id=[0,1,2,3]
+// @Tags			开发测试
+// @Produce		json
+// @Success		200	body	string
+// @Router			/init [get]
 func FillTestData(c *gin.Context) {
 	size := FillTestBotResponse()
 	c.IndentedJSON(http.StatusOK, fmt.Sprint("insert ", size, " record to table bot_response"))
