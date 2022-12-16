@@ -1,8 +1,7 @@
 version: '3'
 services:
   web:
-    image: bot-agent:v0.1
-    build: .
+    image: "luokd97/bot-agent:latest"
     depends_on:
       - mysql
       - redis
