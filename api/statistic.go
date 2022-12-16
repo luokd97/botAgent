@@ -217,7 +217,7 @@ func ShowUnixTimeInfo(c *gin.Context) {
 // // @Tags			开发测试
 // // @Produce		json
 // // @Success		200	body	string
-// // @Router			/time [get]
+// // @Router			/init [get]
 func FillTestData(c *gin.Context) {
 	size := FillTestBotResponse()
 	c.IndentedJSON(http.StatusOK, fmt.Sprint("insert ", size, " record to table bot_response"))
