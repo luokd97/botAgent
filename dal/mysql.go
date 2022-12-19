@@ -23,7 +23,7 @@ func init() {
 	dsn := dbuser + ":" + dbpass + url + dbname + "?charset=utf8mb4&parseTime=True&loc=Local"
 	var err error
 	retry := 0
-	for retry < 5 && (Db == nil || err != nil) {
+	for retry < 10 && (Db == nil || err != nil) {
 		Db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Info)})
 		if Db != nil && err == nil {
 			break
