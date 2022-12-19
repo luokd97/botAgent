@@ -2,8 +2,7 @@ package main
 
 import (
 	"botApiStats/api"
-	"botApiStats/cron"
-	"botApiStats/middleware"
+	"botApiStats/dal"
 	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -11,7 +10,7 @@ import (
 )
 
 func main() {
-	middleware.Rdb.Set(context.Background(), fmt.Sprint(time.Now()), "redis attached", 0)
+	dal.Rdb.Set(context.Background(), fmt.Sprint(time.Now()), "redis attached", 0)
 
 	r := gin.Default()
 	//r.Use(gin.Logger()) //todo 日志改用 https://github.com/sirupsen/logrus
@@ -33,9 +32,6 @@ func main() {
 	r.StaticFile("/v2/swagger.json", "./docs/swagger.json")
 	r.StaticFile("/docs", "./templates/redoc.html")
 	fmt.Println("Documentation served at http://127.0.0.1:8000/docs")
-
-	//启动定时任务
-	cron.DailyUpdateCacheCron()
 
 	r.Run(":8000")
 }

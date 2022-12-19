@@ -1,6 +1,7 @@
 package api
 
 import (
+	"botApiStats/dal/model"
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
@@ -9,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // const robotApiUrl = "http://cors.redoc.ly/core/engine/dm/bot-response"
@@ -37,6 +39,13 @@ func GetPublicIp(c *gin.Context) {
 	} else {
 		fmt.Println("getPublicIp() Request error")
 		c.AbortWithStatus(http.StatusInternalServerError)
+	}
+}
+
+func AddRecord(id string, name string, agentId string) {
+	err := r.Create(&model.BotResponse{AgentId: agentId, IntentId: id, IntentName: name, CreatedAt: time.Now().Unix()})
+	if err != nil {
+		panic(err)
 	}
 }
 

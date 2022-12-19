@@ -1,7 +1,6 @@
 FROM golang:latest
-ENV TZ=Asia/Shanghai
 
-WORKDIR /app
+WORKDIR /cron_task
 ADD go.mod .
 ADD go.sum .
 
@@ -11,6 +10,6 @@ go mod download
 
 COPY . .
 
-RUN GO111MODULE=on go build -o app .
+RUN GO111MODULE=on go build -o task .
 
-CMD ["./app", "-envTag", "docker"]
+CMD ["./task"]

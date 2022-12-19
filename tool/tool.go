@@ -39,6 +39,10 @@ func UnixEpochDaysSince1970(to *time.Time) int {
 	return int(to.Unix() / int64(24*time.Hour.Seconds()))
 }
 
+func TodayUnixDay() int {
+	return UnixEpochDaysSince1970(nil)
+}
+
 func LastWeekUnixTimeRange() (start time.Time, end time.Time) {
 	nowTime := time.Now()
 	todayStartTime := nowTime.Add(-TodayUsedTimeDuration())
@@ -60,10 +64,4 @@ func LastMonthUnixTimeRange() (start time.Time, end time.Time) {
 	}
 	end = start.AddDate(0, 1, 0)
 	return
-}
-
-// 传入一个多返回值的函数调用，只拿第一个返回值
-func FirstReturn(fn func(...any) any) any {
-	//todo
-	return nil
 }

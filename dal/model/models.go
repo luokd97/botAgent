@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"botApiStats/dal/enum"
+	"time"
+)
 
 type BotResponse struct {
 	ID         uint   `gorm:"primarykey"`
@@ -37,8 +40,8 @@ type IntentResult struct {
 
 // DurationStatsRequest 按枚举范围统计
 type DurationStatsRequest struct {
-	N        int `json:"n" binding:"required,gte=1,lte=1000"` //检索数量前n的intent信息，n允许范围[1,1000]
-	Duration int `json:"duration" binding:"gte=0,lte=5"`      //duration-查询的时间范围 枚举类型：0.昨天 1.过去7天 2.过去30天 3.过去90天 4.上周汇总 5.上月汇总" enum:"0,1,2,3,4,5
+	N        int                `json:"n" binding:"required,gte=1,lte=1000"` //检索数量前n的intent信息，n允许范围[1,1000]
+	Duration enum.QueryDuration `json:"duration" binding:"gte=0,lte=5"`      //duration-查询的时间范围 枚举类型：0.昨天 1.过去7天 2.过去30天 3.过去90天 4.上周汇总 5.上月汇总" enum:"0,1,2,3,4,5
 }
 
 // ExactStatsRequest 按精确范围统计

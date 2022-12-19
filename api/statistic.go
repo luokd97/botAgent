@@ -1,12 +1,12 @@
 package api
 
 import (
-	"botApiStats/cron"
+	"botApiStats/cache"
 	"botApiStats/dal"
 	"botApiStats/dal/enum"
 	"botApiStats/dal/model"
 	"botApiStats/dal/query"
-	"botApiStats/middleware"
+	"botApiStats/sync"
 	"botApiStats/tool"
 	"context"
 	"encoding/json"
@@ -18,10 +18,6 @@ import (
 )
 
 var r = query.Use(dal.Db).BotResponse
-
-func AddRecord(id string, name string, agentId string) {
-	r.Create(&model.BotResponse{AgentId: agentId, IntentId: id, IntentName: name, CreatedAt: time.Now().Unix()})
-}
 
 // @Summary		按精确范围统计知识点TopN
 // @Description	点击200 Successful Response查看具体接口返回格式
@@ -69,26 +65,11 @@ func GetTopNIntentByTimeDuration(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, "请求参数有误: "+fmt.Sprint(err))
 		return
 	}
-	var result = make([]model.IntentResult, 0)
 
+	var result = make([]model.IntentResult, 0)
+	//从redis获取缓存记录
+	cacheValueBytes, err := dal.Rdb.Get(context.Background(), req.Duration.String()).Bytes()
 	//检查Duration对应的缓存是否存在
-	cacheHit := false
-	var cacheValueBytes []byte
-	var err error
-	switch req.Duration {
-	case enum.Yesterday:
-		cacheValueBytes, err = middleware.Rdb.Get(context.Background(), "topn_recent1day").Bytes()
-	case enum.Recent7day:
-		cacheValueBytes, err = middleware.Rdb.Get(context.Background(), "topn_recent7day").Bytes()
-	case enum.Recent30day:
-		cacheValueBytes, err = middleware.Rdb.Get(context.Background(), "topn_recent30day").Bytes()
-	case enum.Recent90day:
-		cacheValueBytes, err = middleware.Rdb.Get(context.Background(), "topn_recent90day").Bytes()
-	case enum.LastWeek:
-		cacheValueBytes = nil
-	case enum.LastMonth:
-		cacheValueBytes = nil
-	}
 	if err == nil && cacheValueBytes != nil && len(cacheValueBytes) > 0 {
 		cacheResult := make([]model.IntentResult, 0)
 		err = json.Unmarshal(cacheValueBytes, &cacheResult)
@@ -101,25 +82,21 @@ func GetTopNIntentByTimeDuration(c *gin.Context) {
 		if err != nil {
 			panic(err)
 		}
-		cacheHit = true
 		fmt.Println("cache hit, req.Duration=", req.Duration)
-	}
-
-	//缓存未命中，从db查询
-	if !cacheHit {
-		todayUnixDay := tool.UnixEpochDaysSince1970(nil)
+	} else {
+		//缓存未命中，从db查询
+		var queryEndDay = tool.TodayUnixDay() - 1
 		var queryStartDay int
-		var queryEndDay = todayUnixDay
 
 		switch req.Duration {
 		case enum.Yesterday:
-			queryStartDay = tool.UnixEpochDaysSince1970(nil) - 1
+			queryStartDay = tool.TodayUnixDay() - 1
 		case enum.Recent7day:
-			queryStartDay = tool.UnixEpochDaysSince1970(nil) - 7
+			queryStartDay = tool.TodayUnixDay() - 7
 		case enum.Recent30day:
-			queryStartDay = tool.UnixEpochDaysSince1970(nil) - 30
+			queryStartDay = tool.TodayUnixDay() - 30
 		case enum.Recent90day:
-			queryStartDay = tool.UnixEpochDaysSince1970(nil) - 90
+			queryStartDay = tool.TodayUnixDay() - 90
 		case enum.LastWeek:
 			start, end := tool.LastWeekUnixTimeRange()
 			queryStartDay, queryEndDay = tool.UnixEpochDaysSince1970(&start), tool.UnixEpochDaysSince1970(&end)
@@ -127,10 +104,7 @@ func GetTopNIntentByTimeDuration(c *gin.Context) {
 			start, end := tool.LastMonthUnixTimeRange()
 			queryStartDay, queryEndDay = tool.UnixEpochDaysSince1970(&start), tool.UnixEpochDaysSince1970(&end)
 		}
-
-		if result == nil || len(result) == 0 {
-			result, err = r.SelectTopNIntentByDailyRank(int64(queryStartDay), int64(queryEndDay), req.N, agentId)
-		}
+		result, err = r.SelectTopNIntentByDailyRank(int64(queryStartDay), int64(queryEndDay), req.N, agentId)
 	}
 
 	if err != nil {
@@ -149,11 +123,8 @@ func GetTopNIntentByTimeDuration(c *gin.Context) {
 // @Success		200	body	string
 // @Router			/flush [get]
 func UpdateStatsCache(c *gin.Context) {
-	cron.UpdateDailyIntentFrom3MonthAgo()
-	cron.UpdateRecentNDayTopN(1)  //缓存昨天topN结果
-	cron.UpdateRecentNDayTopN(7)  //缓存过去7天topN结果
-	cron.UpdateRecentNDayTopN(30) //缓存过去30天topN结果
-	cron.UpdateRecentNDayTopN(90) //缓存过去90天topN结果
+	sync.MergeLast3MonthIntentData()
+	cache.UpdateAllCache()
 	c.IndentedJSON(http.StatusOK, "现在开始执行刷新缓存任务")
 }
 

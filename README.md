@@ -25,10 +25,15 @@
 
 
 ## 部署方式
-本地构建，容器内运行
+api服务
 ```sh
-$ go build -o app .
 $ docker-compose up --build
+```
+cron定时任务
+```sh
+$ crontab -e
+
+0 0 2 * * docker-compose --file cron/dock-compose.yml up --build 
 ```
 
 ## 根据接口注释生成swagger.json
@@ -37,10 +42,10 @@ Documentation served at http://127.0.0.1:8000/docs
 $ swag init
 ```
 
-## 根据[generate.go](cmd%2Fgenerate%2Fgenerate.go)生成orm代码
+## 根据[generate.go](dal%2Fgenerate%2Fgenerate.go)生成orm代码
 
 ```sh
-$ go run "cmd/generate/generate.go"
+$ go run "dal/generate/generate.go"
 ```
 ## 为本地Mysql和Redis导入测试数据
 ```sh

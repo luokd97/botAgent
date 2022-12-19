@@ -1,4 +1,4 @@
-package middleware
+package dal
 
 import (
 	"botApiStats/config"
